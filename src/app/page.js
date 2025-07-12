@@ -155,7 +155,7 @@ export default function StackitPlatform() {
 
   // API Helper Function
   const callEdithAPI = async (endpoint, text) => {
-    const response = await fetch(`http://127.0.0.1:8000/edith/${endpoint}`, {
+    const response = await fetch(`https://r-odoo.vercel.app//edith/${endpoint}`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ text })
@@ -261,6 +261,11 @@ export default function StackitPlatform() {
       }));
     }
   };
+
+ 
+
+
+
 
   const submitAnswer = async (questionId) => {
     if (!currentUser) {
