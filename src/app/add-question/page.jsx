@@ -1,367 +1,358 @@
-'use client';
-import { useState, useEffect } from 'react';
-import { useRouter } from 'next/navigation';
-import NotificationDropdown from '@/components/NotificationDropdown';
+"use client"
 
-const AddQuestion = () => {
-  const [formData, setFormData] = useState({
-    title: '',
-    description: '',
-    tags: []
-  });
-  const [tagInput, setTagInput] = useState('');
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState('');
-  const [success, setSuccess] = useState('');
-  const [user, setUser] = useState(null);
-  const router = useRouter();
+import { useState } from "react"
+import { useRouter } from "next/navigation"
+import { Button } from "@/components/ui/button"
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { Input } from "@/components/ui/input"
+import { Label } from "@/components/ui/label"
+import { Badge } from "@/components/ui/badge"
+import { RichTextEditor } from "@/components/RichTextEditor"
+import { X, Plus, HelpCircle, Tag, FileText, Loader2 } from "lucide-react"
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs"
 
-  useEffect(() => {
-    // Check if user is authenticated
-    const token = localStorage.getItem('token');
-    const userData = localStorage.getItem('user');
-    
-    if (!token || !userData) {
-      router.push('/');
-      return;
+const popularTags = [
+  "React",
+  "JavaScript",
+  "Node.js",
+  "Python",
+  "CSS",
+  "HTML",
+  "TypeScript",
+  "Next.js",
+  "Express",
+  "MongoDB",
+]
+
+export default function AskQuestionPage() {
+  const [title, setTitle] = useState("")
+  const [description, setDescription] = useState("")
+  const [tags, setTags] = useState([])
+  const [newTag, setNewTag] = useState("")
+  const [isPreview, setIsPreview] = useState(false)
+  const [isSubmitting, setIsSubmitting] = useState(false)
+  const [error, setError] = useState("")
+  const router = useRouter()
+
+  const addTag = (tag) => {
+    if (tag && !tags.includes(tag) && tags.length < 5) {
+      setTags([...tags, tag])
+      setNewTag("")
     }
-
-    setUser(JSON.parse(userData));
-  }, []);
-
-  const handleInputChange = (e) => {
-    const { name, value } = e.target;
-    setFormData(prev => ({
-      ...prev,
-      [name]: value
-    }));
-  };
-
-  const handleTagInputChange = (e) => {
-    setTagInput(e.target.value);
-  };
-
-  const handleTagInputKeyDown = (e) => {
-    if (e.key === 'Enter' || e.key === ',') {
-      e.preventDefault();
-      addTag();
-    }
-  };
-
-  const addTag = () => {
-    const tag = tagInput.trim().toLowerCase();
-    if (tag && !formData.tags.includes(tag) && formData.tags.length < 5) {
-      setFormData(prev => ({
-        ...prev,
-        tags: [...prev.tags, tag]
-      }));
-      setTagInput('');
-    }
-  };
+  }
 
   const removeTag = (tagToRemove) => {
-    setFormData(prev => ({
-      ...prev,
-      tags: prev.tags.filter(tag => tag !== tagToRemove)
-    }));
-  };
+    setTags(tags.filter((tag) => tag !== tagToRemove))
+  }
 
   const handleSubmit = async (e) => {
-    e.preventDefault();
-    setLoading(true);
-    setError('');
-    setSuccess('');
-
-    // Validation
-    if (!formData.title.trim()) {
-      setError('Title is required');
-      setLoading(false);
-      return;
-    }
-
-    if (formData.title.length < 10) {
-      setError('Title must be at least 10 characters long');
-      setLoading(false);
-      return;
-    }
-
-    if (!formData.description.trim()) {
-      setError('Description is required');
-      setLoading(false);
-      return;
-    }
-
-    if (formData.description.length < 20) {
-      setError('Description must be at least 20 characters long');
-      setLoading(false);
-      return;
-    }
+    e.preventDefault()
+    setError("")
+    setIsSubmitting(true)
 
     try {
-      const token = localStorage.getItem('token');
-      
+      // Validation
+      if (!title.trim()) {
+        throw new Error("Title is required")
+      }
+
+      if (!description.trim()) {
+        throw new Error("Description is required")
+      }
+
+      if (title.length < 10) {
+        throw new Error("Title must be at least 10 characters long")
+      }
+
+      if (description.length < 20) {
+        throw new Error("Description must be at least 20 characters long")
+      }
+
+      if (tags.length === 0) {
+        throw new Error("At least one tag is required")
+      }
+
+      // Get authentication token
+      const token = localStorage.getItem('token')
+      if (!token) {
+        router.push('/login')
+        return
+      }
+
+      // Prepare question data
+      const questionData = {
+        title: title.trim(),
+        description: description.trim(),
+        tags: tags
+      }
+
+      // Submit to API
       const response = await fetch('/api/questions', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${token}`
         },
-        body: JSON.stringify(formData)
-      });
+        body: JSON.stringify(questionData)
+      })
 
-      const data = await response.json();
+      const result = await response.json()
 
-      if (response.ok) {
-        setSuccess('Question created successfully!');
-        // Reset form
-        setFormData({
-          title: '',
-          description: '',
-          tags: []
-        });
-        setTagInput('');
-        
-        // Redirect to dashboard after a short delay
-        setTimeout(() => {
-          router.push('/dashboard');
-        }, 2000);
-      } else {
-        setError(data.message || 'Failed to create question');
+      if (!response.ok) {
+        throw new Error(result.message || 'Failed to create question')
       }
-    } catch (error) {
-      console.error('Error creating question:', error);
-      setError('Network error. Please try again.');
+
+      // Success - redirect to the new question
+      router.push(`/question/${result.question._id}`)
+
+    } catch (err) {
+      setError(err.message)
+      console.error('Error creating question:', err)
     } finally {
-      setLoading(false);
+      setIsSubmitting(false)
     }
-  };
-
-  const handleLogout = () => {
-    // Clear all user data from localStorage
-    localStorage.removeItem('token');
-    localStorage.removeItem('user');
-    
-    // Clear any other potential stored data
-    sessionStorage.clear();
-    
-    // Show logout message
-    setSuccess('Logged out successfully! Redirecting to login...');
-    
-    // Redirect to login page after a short delay
-    setTimeout(() => {
-      router.push('/');
-    }, 1500);
-  };
-
-  const characterCount = (field) => {
-    return formData[field]?.length || 0;
-  };
-
-  const getCharacterCountColor = (field, min, max) => {
-    const count = characterCount(field);
-    if (count < min) return 'text-red-500';
-    if (count > max * 0.9) return 'text-yellow-500';
-    return 'text-gray-400';
-  };
-
-  if (!user) {
-    return (
-      <div className="min-h-screen bg-gray-900 flex items-center justify-center">
-        <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-blue-500"></div>
-      </div>
-    );
   }
 
   return (
-    <div className="min-h-screen bg-gray-900 text-white">
-      {/* Header */}
-      <header className="bg-gray-800 shadow-lg">
-        <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex justify-between items-center py-4">
-            <h1 className="text-2xl font-bold text-blue-400">Ask a Question</h1>
-            <div className="flex items-center space-x-4">
-              <span className="text-gray-300">Welcome, {user?.name}</span>
-              <NotificationDropdown />
-              <button
-                onClick={() => router.push('/dashboard')}
-                className="bg-gray-600 hover:bg-gray-700 px-4 py-2 rounded-md text-sm font-medium"
-              >
-                Dashboard
-              </button>
-              <button
-                onClick={handleLogout}
-                className="bg-red-600 hover:bg-red-700 px-4 py-2 rounded-md text-sm font-medium"
-              >
-                Logout
-              </button>
-            </div>
+    <div className="min-h-screen bg-slate-50">
+      <div className="max-w-4xl mx-auto p-6">
+        <div className="mb-8">
+          <h1 className="text-3xl font-bold text-slate-800 mb-2">Ask a Question</h1>
+          <p className="text-slate-600">Get help from the community by asking a clear, detailed question</p>
+        </div>
+
+        {/* Error Message */}
+        {error && (
+          <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-lg">
+            <p className="text-red-700 text-sm">{error}</p>
+          </div>
+        )}
+
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          {/* Main Form */}
+          <div className="lg:col-span-2">
+            <Card className="bg-white border-slate-200">
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <FileText className="w-5 h-5 text-blue-600" />
+                  Question Details
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <form onSubmit={handleSubmit} className="space-y-6">
+                  {/* Title */}
+                  <div className="space-y-2">
+                    <Label htmlFor="title" className="text-sm font-medium text-slate-700">
+                      Title *
+                    </Label>
+                    <Input
+                      id="title"
+                      placeholder="e.g., How to implement JWT authentication in React?"
+                      value={title}
+                      onChange={(e) => setTitle(e.target.value)}
+                      className="bg-white border-slate-200"
+                      required
+                      disabled={isSubmitting}
+                    />
+                    <p className="text-xs text-slate-500">
+                      Be specific and imagine you're asking a question to another person
+                    </p>
+                  </div>
+
+                  {/* Description */}
+                  <div className="space-y-2">
+                    <div className="flex items-center justify-between">
+                      <Label className="text-sm font-medium text-slate-700">Description *</Label>
+                      <Tabs
+                        value={isPreview ? "preview" : "write"}
+                        onValueChange={(v) => setIsPreview(v === "preview")}
+                      >
+                        <TabsList className="grid w-fit grid-cols-2">
+                          <TabsTrigger value="write" className="text-xs">
+                            Write
+                          </TabsTrigger>
+                          <TabsTrigger value="preview" className="text-xs">
+                            Preview
+                          </TabsTrigger>
+                        </TabsList>
+                      </Tabs>
+                    </div>
+
+                    {isPreview ? (
+                      <div className="min-h-[200px] p-4 border border-slate-200 rounded-md bg-slate-50">
+                        <div dangerouslySetInnerHTML={{ __html: description || "<p>Nothing to preview</p>" }} />
+                      </div>
+                    ) : (
+                      <RichTextEditor
+                        value={description}
+                        onChange={setDescription}
+                        placeholder="Provide details about your question. Include what you've tried and what specific help you need..."
+                        disabled={isSubmitting}
+                      />
+                    )}
+                    <p className="text-xs text-slate-500">
+                      Include all the information someone would need to answer your question
+                    </p>
+                  </div>
+
+                  {/* Tags */}
+                  <div className="space-y-2">
+                    <Label className="text-sm font-medium text-slate-700">Tags *</Label>
+
+                    {/* Selected Tags */}
+                    {tags.length > 0 && (
+                      <div className="flex flex-wrap gap-2 mb-3">
+                        {tags.map((tag) => (
+                          <Badge key={tag} variant="secondary" className="bg-blue-100 text-blue-800 border-blue-200">
+                            {tag}
+                            <button 
+                              type="button" 
+                              onClick={() => removeTag(tag)} 
+                              className="ml-2 hover:text-blue-600"
+                              disabled={isSubmitting}
+                            >
+                              <X className="w-3 h-3" />
+                            </button>
+                          </Badge>
+                        ))}
+                      </div>
+                    )}
+
+                    {/* Add Tag Input */}
+                    <div className="flex gap-2">
+                      <Input
+                        placeholder="Add a tag..."
+                        value={newTag}
+                        onChange={(e) => setNewTag(e.target.value)}
+                        onKeyPress={(e) => {
+                          if (e.key === "Enter") {
+                            e.preventDefault()
+                            addTag(newTag)
+                          }
+                        }}
+                        className="bg-white border-slate-200"
+                        disabled={tags.length >= 5 || isSubmitting}
+                      />
+                      <Button
+                        type="button"
+                        variant="outline"
+                        onClick={() => addTag(newTag)}
+                        disabled={!newTag || tags.length >= 5 || isSubmitting}
+                      >
+                        <Plus className="w-4 h-4" />
+                      </Button>
+                    </div>
+
+                    {/* Popular Tags */}
+                    <div className="space-y-2">
+                      <p className="text-xs text-slate-500">Popular tags:</p>
+                      <div className="flex flex-wrap gap-2">
+                        {popularTags.map((tag) => (
+                          <Badge
+                            key={tag}
+                            variant="outline"
+                            className={`cursor-pointer hover:bg-slate-100 ${isSubmitting ? 'opacity-50 cursor-not-allowed' : ''}`}
+                            onClick={() => !isSubmitting && addTag(tag)}
+                          >
+                            {tag}
+                          </Badge>
+                        ))}
+                      </div>
+                    </div>
+
+                    <p className="text-xs text-slate-500">Add up to 5 tags to describe what your question is about</p>
+                  </div>
+
+                  {/* Submit Button */}
+                  <div className="flex gap-3 pt-4">
+                    <Button 
+                      type="submit" 
+                      className="bg-blue-600 hover:bg-blue-700"
+                      disabled={isSubmitting}
+                    >
+                      {isSubmitting ? (
+                        <>
+                          <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                          Posting Question...
+                        </>
+                      ) : (
+                        'Post Question'
+                      )}
+                    </Button>
+                    <Button 
+                      type="button" 
+                      variant="outline"
+                      onClick={() => router.push('/')}
+                      disabled={isSubmitting}
+                    >
+                      Cancel
+                    </Button>
+                  </div>
+                </form>
+              </CardContent>
+            </Card>
+          </div>
+
+          {/* Sidebar */}
+          <div className="space-y-6">
+            {/* Tips Card */}
+            <Card className="bg-amber-50 border-amber-200">
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2 text-amber-800">
+                  <HelpCircle className="w-5 h-5" />
+                  Writing Tips
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-3 text-sm text-amber-700">
+                <div className="flex items-start gap-2">
+                  <div className="w-1.5 h-1.5 bg-amber-600 rounded-full mt-2 flex-shrink-0" />
+                  <p>Summarize your problem in a one-line title</p>
+                </div>
+                <div className="flex items-start gap-2">
+                  <div className="w-1.5 h-1.5 bg-amber-600 rounded-full mt-2 flex-shrink-0" />
+                  <p>Describe your problem in more detail</p>
+                </div>
+                <div className="flex items-start gap-2">
+                  <div className="w-1.5 h-1.5 bg-amber-600 rounded-full mt-2 flex-shrink-0" />
+                  <p>Describe what you tried and what you expected to happen</p>
+                </div>
+                <div className="flex items-start gap-2">
+                  <div className="w-1.5 h-1.5 bg-amber-600 rounded-full mt-2 flex-shrink-0" />
+                  <p>Add relevant tags to help others find your question</p>
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* Guidelines Card */}
+            <Card className="bg-green-50 border-green-200">
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2 text-green-800">
+                  <Tag className="w-5 h-5" />
+                  Community Guidelines
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-3 text-sm text-green-700">
+                <div className="flex items-start gap-2">
+                  <div className="w-1.5 h-1.5 bg-green-600 rounded-full mt-2 flex-shrink-0" />
+                  <p>Be respectful and constructive</p>
+                </div>
+                <div className="flex items-start gap-2">
+                  <div className="w-1.5 h-1.5 bg-green-600 rounded-full mt-2 flex-shrink-0" />
+                  <p>Search for existing answers first</p>
+                </div>
+                <div className="flex items-start gap-2">
+                  <div className="w-1.5 h-1.5 bg-green-600 rounded-full mt-2 flex-shrink-0" />
+                  <p>Provide code examples when relevant</p>
+                </div>
+                <div className="flex items-start gap-2">
+                  <div className="w-1.5 h-1.5 bg-green-600 rounded-full mt-2 flex-shrink-0" />
+                  <p>Accept helpful answers to help others</p>
+                </div>
+              </CardContent>
+            </Card>
           </div>
         </div>
-      </header>
-
-      {/* Main Content */}
-      <main className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        <div className="bg-gray-800 rounded-lg p-6 shadow-lg">
-          <form onSubmit={handleSubmit} className="space-y-6">
-            {/* Title Field */}
-            <div>
-              <label htmlFor="title" className="block text-sm font-medium text-gray-300 mb-2">
-                Question Title *
-              </label>
-              <input
-                type="text"
-                id="title"
-                name="title"
-                value={formData.title}
-                onChange={handleInputChange}
-                placeholder="What's your question? Be specific."
-                className="w-full px-4 py-3 bg-gray-700 border border-gray-600 rounded-md text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                maxLength={200}
-              />
-              <div className="flex justify-between items-center mt-1">
-                <span className="text-xs text-gray-400">
-                  Minimum 10 characters
-                </span>
-                <span className={`text-xs ${getCharacterCountColor('title', 10, 200)}`}>
-                  {characterCount('title')}/200
-                </span>
-              </div>
-            </div>
-
-            {/* Description Field */}
-            <div>
-              <label htmlFor="description" className="block text-sm font-medium text-gray-300 mb-2">
-                Question Description *
-              </label>
-              <textarea
-                id="description"
-                name="description"
-                value={formData.description}
-                onChange={handleInputChange}
-                placeholder="Provide more details about your question. Include any relevant code, error messages, or context."
-                rows={8}
-                className="w-full px-4 py-3 bg-gray-700 border border-gray-600 rounded-md text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-vertical"
-                maxLength={2000}
-              />
-              <div className="flex justify-between items-center mt-1">
-                <span className="text-xs text-gray-400">
-                  Minimum 20 characters
-                </span>
-                <span className={`text-xs ${getCharacterCountColor('description', 20, 2000)}`}>
-                  {characterCount('description')}/2000
-                </span>
-              </div>
-            </div>
-
-            {/* Tags Field */}
-            <div>
-              <label htmlFor="tags" className="block text-sm font-medium text-gray-300 mb-2">
-                Tags (Optional)
-              </label>
-              <div className="flex flex-wrap gap-2 mb-2">
-                {formData.tags.map((tag, index) => (
-                  <span
-                    key={index}
-                    className="bg-blue-600 text-white px-3 py-1 rounded-full text-sm flex items-center space-x-1"
-                  >
-                    <span>{tag}</span>
-                    <button
-                      type="button"
-                      onClick={() => removeTag(tag)}
-                      className="ml-1 hover:text-red-200"
-                    >
-                      ×
-                    </button>
-                  </span>
-                ))}
-              </div>
-              <div className="flex gap-2">
-                <input
-                  type="text"
-                  value={tagInput}
-                  onChange={handleTagInputChange}
-                  onKeyDown={handleTagInputKeyDown}
-                  placeholder="Add tags (press Enter or comma to add)"
-                  className="flex-1 px-4 py-2 bg-gray-700 border border-gray-600 rounded-md text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                  maxLength={20}
-                />
-                <button
-                  type="button"
-                  onClick={addTag}
-                  disabled={!tagInput.trim() || formData.tags.length >= 5}
-                  className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
-                >
-                  Add
-                </button>
-              </div>
-              <div className="flex justify-between items-center mt-1">
-                <span className="text-xs text-gray-400">
-                  Press Enter or comma to add tags
-                </span>
-                <span className="text-xs text-gray-400">
-                  {formData.tags.length}/5 tags
-                </span>
-              </div>
-            </div>
-
-            {/* Error Message */}
-            {error && (
-              <div className="bg-red-900 border border-red-700 text-red-200 px-4 py-3 rounded">
-                {error}
-              </div>
-            )}
-
-            {/* Success Message */}
-            {success && (
-              <div className="bg-green-900 border border-green-700 text-green-200 px-4 py-3 rounded">
-                {success}
-              </div>
-            )}
-
-            {/* Submit Button */}
-            <div className="flex justify-end space-x-4">
-              <button
-                type="button"
-                onClick={() => router.push('/dashboard')}
-                className="px-6 py-3 bg-gray-600 text-white rounded-md hover:bg-gray-700 font-medium"
-              >
-                Cancel
-              </button>
-              <button
-                type="submit"
-                disabled={loading}
-                className="px-6 py-3 bg-blue-600 text-white rounded-md hover:bg-blue-700 font-medium disabled:opacity-50 disabled:cursor-not-allowed flex items-center space-x-2"
-              >
-                {loading ? (
-                  <>
-                    <svg className="animate-spin h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                    </svg>
-                    <span>Creating...</span>
-                  </>
-                ) : (
-                  <span>Ask Question</span>
-                )}
-              </button>
-            </div>
-          </form>
-        </div>
-
-        {/* Help Section */}
-        <div className="mt-8 bg-gray-800 rounded-lg p-6">
-          <h3 className="text-lg font-medium text-white mb-4">Tips for asking a good question:</h3>
-          <ul className="space-y-2 text-gray-300 text-sm">
-            <li>• Be specific and clear about what you're asking</li>
-            <li>• Include relevant code snippets if applicable</li>
-            <li>• Mention what you've already tried</li>
-            <li>• Use descriptive tags to help others find your question</li>
-            <li>• Check if your question has already been answered</li>
-          </ul>
-        </div>
-      </main>
+      </div>
     </div>
-  );
-};
-
-export default AddQuestion;
+  )
+}
