@@ -22,8 +22,7 @@ function formatTimeAgo(dateString) {
 }
 
 export default function QuestionPage({ params }) {
-
-  console.log("id",params.id)
+  console.log("id", params.id)
   const [question, setQuestion] = useState(null)
   const [answers, setAnswers] = useState([])
   const [loading, setLoading] = useState(true)
@@ -31,6 +30,31 @@ export default function QuestionPage({ params }) {
   const [newAnswer, setNewAnswer] = useState("")
   const [showAnswerForm, setShowAnswerForm] = useState(false)
   const [submittingAnswer, setSubmittingAnswer] = useState(false)
+  const [currentUser, setCurrentUser] = useState(null)
+
+  // Fetch current user
+  useEffect(() => {
+    const fetchCurrentUser = async () => {
+      try {
+        const token = localStorage.getItem('token')
+        if (!token) return
+        
+        const res = await fetch('/api/user/profile', {
+          headers: {
+            'Authorization': `Bearer ${token}`
+          }
+        })
+        
+        if (res.ok) {
+          const data = await res.json()
+          setCurrentUser(data.user)
+        }
+      } catch (err) {
+        console.error('Failed to fetch current user:', err)
+      }
+    }
+    fetchCurrentUser()
+  }, [])
 
   // Fetch question and answers
   useEffect(() => {
@@ -40,17 +64,16 @@ export default function QuestionPage({ params }) {
       try {
         // Fetch question details
         const qRes = await fetch(`/api/questions/${params.id}`)
-
-        console.log("res: ",qRes);
+        console.log("res: ", qRes);
         if (!qRes.ok) throw new Error("Failed to fetch question")
         const qData = await qRes.json()
         setQuestion(qData.question)
 
-        // Fetch answers for this question
-        const aRes = await fetch(`/api/answer?questionId=${params.id}`)
-        if (!aRes.ok) throw new Error("Failed to fetch answers")
-        const aData = await aRes.json()
-        setAnswers(aData.answers || [])
+        // // Fetch answers
+        // const aRes = await fetch(`/api/questions/${params.id}/answers`)
+        // if (!aRes.ok) throw new Error("Failed to fetch answers")
+        // const aData = await aRes.json()
+        // setAnswers(aData.answers || [])
       } catch (err) {
         setError(err.message)
       } finally {

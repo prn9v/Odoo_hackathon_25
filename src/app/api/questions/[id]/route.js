@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import dbConnect from '@/lib/dbConnect';
 import Question from '@/models/Question';
+import Answer from '@/models/Answer';
 import User from '@/models/User';
 
 export async function GET(req, context) {
@@ -21,7 +22,9 @@ export async function GET(req, context) {
     if (!question) {
       return NextResponse.json({ message: 'Question not found' }, { status: 404 });
     }
-    
+
+    // Increment view count
+    await Question.findByIdAndUpdate(id, { $inc: { views: 1 } });
 
     return NextResponse.json({ question }, { status: 200 });
   } catch (error) {
